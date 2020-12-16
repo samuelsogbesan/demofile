@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.makeDecoder = exports.SPROP_VARINT = exports.SPROP_CHANGES_OFTEN = exports.SPROP_CELL_COORD_INTEGRAL = exports.SPROP_CELL_COORD_LOWPRECISION = exports.SPROP_CELL_COORD = exports.SPROP_COORD_MP_INTEGRAL = exports.SPROP_COORD_MP_LOWPRECISION = exports.SPROP_COORD_MP = exports.SPROP_COLLAPSIBLE = exports.SPROP_IS_A_VECTOR_ELEM = exports.SPROP_PROXY_ALWAYS_YES = exports.SPROP_INSIDEARRAY = exports.SPROP_XYZE = exports.SPROP_EXCLUDE = exports.SPROP_NORMAL = exports.SPROP_ROUNDUP = exports.SPROP_ROUNDDOWN = exports.SPROP_NOSCALE = exports.SPROP_COORD = exports.SPROP_UNSIGNED = void 0;
 const assert = require("assert");
 const Long = require("long");
 const assert_exists_1 = require("./assert-exists");
@@ -58,14 +59,12 @@ function makeValueDecoder(sendProp) {
 }
 function makeIntDecoder(sendProp) {
     if ((sendProp.flags & exports.SPROP_VARINT) !== 0) {
-        /*eslint-disable no-unreachable*/
         if ((sendProp.flags & exports.SPROP_UNSIGNED) !== 0) {
-            throw new Error("32-bit unsigned varints not implemented"); // TODO
+            return bitbuf => bitbuf.readUVarInt32();
         }
         else {
-            throw new Error("32-bit signed varints not implemented"); // TODO
+            return bitbuf => bitbuf.readVarInt32();
         }
-        /*eslint-enable no-unreachable*/
     }
     else {
         const numBits = sendProp.numBits;

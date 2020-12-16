@@ -1,5 +1,5 @@
 import assert = require("assert");
-import EventEmitter = require("events");
+import { EventEmitter } from "events";
 import _ = require("lodash");
 
 import assertExists from "./assert-exists";
@@ -404,8 +404,8 @@ export class Entities extends EventEmitter {
       return (existing as unknown) as TEntityClass;
     }
 
-    const entity = this.entities.find(
-      ent => (ent ? ent.serverClass.name === serverClass : false)
+    const entity = this.entities.find(ent =>
+      ent ? ent.serverClass.name === serverClass : false
     );
     if (!entity) {
       throw new Error(`Missing singleton ${serverClass}`);
@@ -416,14 +416,14 @@ export class Entities extends EventEmitter {
   }
 
   public findAllWithTable(table: string): Networkable[] {
-    return this.entities.filter(
-      (ent): ent is Networkable => (ent != null ? table in ent.props : false)
+    return this.entities.filter((ent): ent is Networkable =>
+      ent != null ? table in ent.props : false
     );
   }
 
   public findAllWithClass<T>(klass: NetworkableConstructor<T>): T[] {
-    return (this.entities.filter(
-      ent => (ent ? ent instanceof klass : false)
+    return (this.entities.filter(ent =>
+      ent ? ent instanceof klass : false
     ) as unknown) as T[];
   }
 
@@ -435,9 +435,7 @@ export class Entities extends EventEmitter {
 
       const length = chunk.readVarint32();
 
-      const msg: RequiredNonNullable<
-        ICSVCMsg_SendTable
-      > = descriptor.class.decode(
+      const msg: RequiredNonNullable<ICSVCMsg_SendTable> = descriptor.class.decode(
         new Uint8Array(chunk.readBytes(length).toBuffer())
       );
       if (msg.isEnd) {
@@ -503,7 +501,10 @@ export class Entities extends EventEmitter {
 
       if (prop.type === PropType.DataTable) {
         const subTable = assertExists(this._findTableByName(prop.dtName));
-        excludes.push.apply(excludes, this._gatherExcludes(subTable));
+        excludes.push.apply(
+          excludes,
+          this._gatherExcludes(subTable) as ISendProp[]
+        );
       }
     }
 
@@ -537,7 +538,7 @@ export class Entities extends EventEmitter {
           }
         }
 
-        flattened.push.apply(flattened, childProps);
+        flattened.push.apply(flattened, childProps as IFlattenedSendProp[]);
       } else {
         flattened.push({
           prop,

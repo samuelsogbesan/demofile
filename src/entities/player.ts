@@ -1,3 +1,4 @@
+import { decodeCrosshairCode, ICrosshairInfo } from "../crosshair";
 import { DemoFile } from "../demo";
 import { CCSPlayer, CCSPlayerResource, Vector } from "../sendtabletypes";
 import { IPlayerInfo } from "../stringtables";
@@ -67,6 +68,8 @@ export interface IPlayerRoundStats {
  */
 export class Player extends BaseEntity<CCSPlayer> {
   public clientSlot: number;
+
+  private _steam64IdCache: string | undefined;
 
   constructor(
     demo: DemoFile,
@@ -169,7 +172,10 @@ export class Player extends BaseEntity<CCSPlayer> {
    * @returns Steam 64 ID
    */
   get steam64Id(): string {
-    return this.userInfo!.xuid.toString();
+    if (this._steam64IdCache === undefined)
+      this._steam64IdCache = this.userInfo!.xuid.toString();
+
+    return this._steam64IdCache;
   }
 
   /**
@@ -222,8 +228,8 @@ export class Player extends BaseEntity<CCSPlayer> {
   get weapons(): Weapon[] {
     return (this.getIndexedProps("m_hMyWeapons")
       .map(handle => this._demo.entities.getByHandle(handle))
-      .filter(
-        ent => (ent ? ent instanceof Weapon : false)
+      .filter(ent =>
+        ent ? ent instanceof Weapon : false
       ) as unknown) as Weapon[];
   }
 
@@ -260,6 +266,13 @@ export class Player extends BaseEntity<CCSPlayer> {
    */
   get hasHelmet(): boolean {
     return this.getProp("DT_CSPlayer", "m_bHasHelmet");
+  }
+
+  /**
+   * @returns Does the player is controlling a BOT?
+   */
+  get isControllingBot(): boolean {
+    return this.getProp("DT_CSPlayer", "m_bIsControllingBot");
   }
 
   /**
@@ -431,6 +444,20 @@ export class Player extends BaseEntity<CCSPlayer> {
   }
 
   /**
+   * @returns Player is transitioning from ducked -> standing or standing -> ducked
+   */
+  get isDucking(): boolean {
+    return this.getProp("DT_Local", "m_bDucking");
+  }
+
+  /**
+   * @returns Is ducked
+   */
+  get isDucked(): boolean {
+    return this.getProp("DT_Local", "m_bDucked");
+  }
+
+  /**
    * @returns Duration of a flash that hit the player
    */
   get flashDuration(): number {
@@ -490,5 +517,12 @@ export class Player extends BaseEntity<CCSPlayer> {
     }
 
     return rounds;
+  }
+
+  /**
+   * @returns Object representing user-customisable crosshair settings.
+   */
+  get crosshairInfo(): ICrosshairInfo {
+    return decodeCrosshairCode(this.resourceProp("m_szCrosshairCodes"));
   }
 }

@@ -9,6 +9,7 @@
     "strict": true,
     "outDir": "./dist",
     "allowJs": true,
+    "declaration": false,
     "target": "es2017",
     "lib": ["es2017"],
     "module": "commonjs",

@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.BitView = exports.BitStream = exports.CoordType = void 0;
 const assert = require("assert");
 const bit_buffer_1 = require("bit-buffer");
-exports.BitStream = bit_buffer_1.BitStream;
-exports.BitView = bit_buffer_1.BitView;
+Object.defineProperty(exports, "BitStream", { enumerable: true, get: function () { return bit_buffer_1.BitStream; } });
+Object.defineProperty(exports, "BitView", { enumerable: true, get: function () { return bit_buffer_1.BitView; } });
 var CoordType;
 (function (CoordType) {
     CoordType[CoordType["None"] = 0] = "None";
@@ -22,6 +23,7 @@ const COORD_RESOLUTION_LOWPRECISION = 1.0 / COORD_DENOMINATOR_LOWPRECISION;
 const NORMAL_FRACTIONAL_BITS = 11;
 const NORMAL_DENOMINATOR = (1 << NORMAL_FRACTIONAL_BITS) - 1;
 const NORMAL_RESOLUTION = 1.0 / NORMAL_DENOMINATOR;
+const MAX_VAR_INT32_BYTES = 5;
 const originalGetBits = bit_buffer_1.BitView.prototype.getBits;
 bit_buffer_1.BitView.prototype.getBits = function (offset, bits, signed) {
     if (this.silentOverflow === true) {
@@ -89,6 +91,24 @@ bit_buffer_1.BitStream.prototype.readBitCoord = function () {
         value = -value;
     }
     return value;
+};
+bit_buffer_1.BitStream.prototype.readUVarInt32 = function () {
+    let result = 0;
+    let count = 0;
+    let bytes;
+    do {
+        if (count === MAX_VAR_INT32_BYTES) {
+            return result;
+        }
+        bytes = this.readUInt8();
+        result |= (bytes & 0x7f) << (7 * count);
+        ++count;
+    } while (bytes & 0x80);
+    return result;
+};
+bit_buffer_1.BitStream.prototype.readVarInt32 = function () {
+    const result = this.readUVarInt32();
+    return (result >> 1) ^ -(result & 1);
 };
 bit_buffer_1.BitStream.prototype.readBitCoordMP = function (coordType) {
     const inBounds = this.readOneBit();

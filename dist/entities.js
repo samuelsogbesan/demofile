@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Entities = void 0;
 const assert = require("assert");
-const EventEmitter = require("events");
+const events_1 = require("events");
 const _ = require("lodash");
 const assert_exists_1 = require("./assert-exists");
 const bitbuffer_1 = require("./ext/bitbuffer");
@@ -53,7 +54,7 @@ function readFieldIndex(entityBitBuffer, lastIndex, newWay) {
 /**
  * Represents entities and networked properties within a demo.
  */
-class Entities extends EventEmitter {
+class Entities extends events_1.EventEmitter {
     constructor() {
         super(...arguments);
         this.dataTables = [];
@@ -159,7 +160,7 @@ class Entities extends EventEmitter {
         if (existing) {
             return existing;
         }
-        const entity = this.entities.find(ent => (ent ? ent.serverClass.name === serverClass : false));
+        const entity = this.entities.find(ent => ent ? ent.serverClass.name === serverClass : false);
         if (!entity) {
             throw new Error(`Missing singleton ${serverClass}`);
         }
@@ -167,10 +168,10 @@ class Entities extends EventEmitter {
         return entity;
     }
     findAllWithTable(table) {
-        return this.entities.filter((ent) => (ent != null ? table in ent.props : false));
+        return this.entities.filter((ent) => ent != null ? table in ent.props : false);
     }
     findAllWithClass(klass) {
-        return this.entities.filter(ent => (ent ? ent instanceof klass : false));
+        return this.entities.filter(ent => ent ? ent instanceof klass : false);
     }
     handleDataTables(chunk) {
         while (true) {

@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Team = void 0;
 const networkable_1 = require("./networkable");
+const player_1 = require("./player");
 /**
  * Represents an in-game team.
  */
@@ -10,7 +12,9 @@ class Team extends networkable_1.Networkable {
      */
     get members() {
         // UNSAFE: cast here as members will always be players
-        return this.getProp("DT_Team", '"player_array"').map(index => this._demo.entities.entities[index]);
+        return this.getProp("DT_Team", '"player_array"')
+            .map(index => this._demo.entities.entities[index])
+            .filter(player => player instanceof player_1.Player);
     }
     /**
      * @returns {int} 0: Unassigned, 1: Spectator, 2: Terrorist, 3: Counter-Terrorist

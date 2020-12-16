@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.DemoFile = exports.parseHeader = void 0;
 const events_1 = require("events");
 const timers = require("timers");
 const ByteBuffer = require("bytebuffer");
@@ -9,17 +10,17 @@ const consts_1 = require("./consts");
 const convars_1 = require("./convars");
 const entities_1 = require("./entities");
 var gamerules_1 = require("./entities/gamerules");
-exports.GameRules = gamerules_1.GameRules;
+Object.defineProperty(exports, "GameRules", { enumerable: true, get: function () { return gamerules_1.GameRules; } });
 var player_1 = require("./entities/player");
-exports.Player = player_1.Player;
+Object.defineProperty(exports, "Player", { enumerable: true, get: function () { return player_1.Player; } });
 var team_1 = require("./entities/team");
-exports.Team = team_1.Team;
+Object.defineProperty(exports, "Team", { enumerable: true, get: function () { return team_1.Team; } });
 const gameevents_1 = require("./gameevents");
 const net = require("./net");
 const stringtables_1 = require("./stringtables");
 const usermessages_1 = require("./usermessages");
 var keyvalues_1 = require("./keyvalues");
-exports.parseBinaryKeyValues = keyvalues_1.parseBinaryKeyValues;
+Object.defineProperty(exports, "parseBinaryKeyValues", { enumerable: true, get: function () { return keyvalues_1.parseBinaryKeyValues; } });
 /**
  * Parses a demo file header from the buffer.
  * @param {ArrayBuffer} buffer - Buffer of the demo header
@@ -74,6 +75,10 @@ class DemoFile extends events_1.EventEmitter {
          */
         this.currentTick = 0;
         /**
+         * Number of seconds per tick
+         */
+        this.tickInterval = NaN;
+        /**
          * When parsing, set to player slot for current command.
          */
         this.playerSlot = 0;
@@ -92,18 +97,23 @@ class DemoFile extends events_1.EventEmitter {
         this.stringTables.listen(this);
         this.userMessages.listen(this);
         this.conVars.listen(this);
+        // #65: Some demos are missing playbackTicks from the header
+        // Pull the tick interval from ServerInfo
+        this.on("svc_ServerInfo", msg => {
+            this.tickInterval = msg.tickInterval;
+        });
     }
     /**
      * @returns Number of ticks per second
      */
     get tickRate() {
-        return this.header.playbackTicks / this.header.playbackTime;
+        return 1.0 / this.tickInterval;
     }
     /**
      * @returns Number of seconds elapsed
      */
     get currentTime() {
-        return (this.currentTick * (this.header.playbackTime / this.header.playbackTicks));
+        return this.currentTick * this.tickInterval;
     }
     /**
      * Shortcut for `this.entities.players`
@@ -128,6 +138,10 @@ class DemoFile extends events_1.EventEmitter {
     }
     parse(buffer) {
         this.header = parseHeader(buffer);
+        // #65: Some demos are missing playbackTicks from the header
+        if (this.header.playbackTicks > 0) {
+            this.tickInterval = this.header.playbackTime / this.header.playbackTicks;
+        }
         this._bytebuf = ByteBuffer.wrap(buffer.slice(1072), true);
         this.emit("start");
         timers.setTimeout(this._parseRecurse.bind(this), 0);
@@ -234,7 +248,7 @@ class DemoFile extends events_1.EventEmitter {
                 case 7 /* Stop */:
                     this.cancel();
                     this.emit("tickend", this.currentTick);
-                    this.emit("end", {});
+                    this.emit("end", { incomplete: false });
                     return;
                 case 8 /* CustomData */:
                     throw new Error("Custom data not supported");
@@ -247,8 +261,18 @@ class DemoFile extends events_1.EventEmitter {
         catch (e) {
             // Always cancel if we have an error - we've already scheduled the next tick
             this.cancel();
-            this.emit("tickend", this.currentTick);
-            this.emit("end", { error: e });
+            // #11, #172: Some demos have been written incompletely.
+            // Don't throw an error when we run out of bytes to read.
+            if (e instanceof RangeError &&
+                this.header.playbackTicks === 0 &&
+                this.header.playbackTime === 0 &&
+                this.header.playbackFrames === 0) {
+                this.emit("end", { incomplete: true });
+            }
+            else {
+                this.emit("error", e);
+                this.emit("end", { error: e, incomplete: false });
+            }
         }
     }
 }

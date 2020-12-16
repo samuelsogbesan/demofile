@@ -122,21 +122,18 @@ function parseDemoFile(path: string) {
       const headshotText = e.headshot ? " HS" : "";
 
       console.log(
-        `${attackerColour}${attackerName}${ansiStyles.reset.open} [${
-          e.weapon
-        }${headshotText}] ${victimColour}${victimName}${ansiStyles.reset.open}`
+        `${attackerColour}${attackerName}${ansiStyles.reset.open} [${e.weapon}${headshotText}] ${victimColour}${victimName}${ansiStyles.reset.open}`
       );
     });
 
     demoFile.userMessages.on("TextMsg", e => {
       const params = e.params
-        .map(
-          param =>
-            param[0] === "#"
-              ? standardMessages[param.substring(1)] || param
-              : param
+        .map(param =>
+          param[0] === "#"
+            ? standardMessages[param.substring(1)] || param
+            : param
         )
-        .filter(s => s.length);
+        .filter(s => s.length) as [string, ...string[]];
 
       const formatted = util.format.apply(null, params);
       console.log(formatSayText(0, formatted));
@@ -150,7 +147,7 @@ function parseDemoFile(path: string) {
       const nonEmptyParams = e.params.filter(s => s.length);
       const msgText = standardMessages[e.msgName];
       const formatted = msgText
-        ? util.format.apply(null, [msgText].concat(nonEmptyParams))
+        ? util.format.apply(null, [msgText, ...nonEmptyParams])
         : `${e.msgName} ${nonEmptyParams.join(" ")}`;
 
       console.log(formatSayText(e.entIdx, formatted));
@@ -158,10 +155,11 @@ function parseDemoFile(path: string) {
 
     demoFile.gameEvents.on("round_end", e => {
       console.log(
-        "*** Round ended '%s' (reason: %s, tick: %d)",
+        "*** Round ended '%s' (reason: %s, tick: %d, time: %d secs)",
         demoFile.gameRules.phase,
         e.reason,
-        demoFile.currentTick
+        demoFile.currentTick,
+        demoFile.currentTime | 0
       );
 
       // We can't print the team scores here as they haven't been updated yet.

@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Player = void 0;
+const crosshair_1 = require("../crosshair");
 const baseentity_1 = require("./baseentity");
 const weapon_1 = require("./weapon");
 /**
@@ -88,7 +90,9 @@ class Player extends baseentity_1.BaseEntity {
      * @returns Steam 64 ID
      */
     get steam64Id() {
-        return this.userInfo.xuid.toString();
+        if (this._steam64IdCache === undefined)
+            this._steam64IdCache = this.userInfo.xuid.toString();
+        return this._steam64IdCache;
     }
     /**
      * @returns Player name
@@ -132,7 +136,7 @@ class Player extends baseentity_1.BaseEntity {
     get weapons() {
         return this.getIndexedProps("m_hMyWeapons")
             .map(handle => this._demo.entities.getByHandle(handle))
-            .filter(ent => (ent ? ent instanceof weapon_1.Weapon : false));
+            .filter(ent => ent ? ent instanceof weapon_1.Weapon : false);
     }
     /**
      * @returns Is the player is the bomb zone?
@@ -163,6 +167,12 @@ class Player extends baseentity_1.BaseEntity {
      */
     get hasHelmet() {
         return this.getProp("DT_CSPlayer", "m_bHasHelmet");
+    }
+    /**
+     * @returns Does the player is controlling a BOT?
+     */
+    get isControllingBot() {
+        return this.getProp("DT_CSPlayer", "m_bIsControllingBot");
     }
     /**
      * Retrieves the value of an array property on the singleton entity DT_CSPlayerResource.
@@ -300,6 +310,18 @@ class Player extends baseentity_1.BaseEntity {
         return this.getProp("DT_CSPlayer", "m_bIsWalking");
     }
     /**
+     * @returns Player is transitioning from ducked -> standing or standing -> ducked
+     */
+    get isDucking() {
+        return this.getProp("DT_Local", "m_bDucking");
+    }
+    /**
+     * @returns Is ducked
+     */
+    get isDucked() {
+        return this.getProp("DT_Local", "m_bDucked");
+    }
+    /**
      * @returns Duration of a flash that hit the player
      */
     get flashDuration() {
@@ -353,6 +375,12 @@ class Player extends baseentity_1.BaseEntity {
             });
         }
         return rounds;
+    }
+    /**
+     * @returns Object representing user-customisable crosshair settings.
+     */
+    get crosshairInfo() {
+        return crosshair_1.decodeCrosshairCode(this.resourceProp("m_szCrosshairCodes"));
     }
 }
 exports.Player = Player;

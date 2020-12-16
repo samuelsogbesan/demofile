@@ -178,6 +178,11 @@ export interface IDemoEndEvent {
    * Error that caused the premature end of parsing.
    */
   error?: Error;
+
+  /**
+   * Did parsing finish prematurely because the demo was incomplete?
+   */
+  incomplete: boolean;
 }
 
 export declare interface DemoFile {
@@ -186,6 +191,12 @@ export declare interface DemoFile {
    */
   on(event: "start", listener: () => void): this;
   emit(name: "start"): boolean;
+
+  /**
+   * Fired when parsing failed.
+   */
+  on(event: "error", listener: (error: Error) => void): this;
+  emit(name: "error", error: Error): boolean;
 
   /**
    * Fired when parsing has finished, successfully or otherwise.
@@ -371,16 +382,14 @@ export class DemoFile extends EventEmitter {
    * @returns Number of ticks per second
    */
   get tickRate() {
-    return this.header.playbackTicks / this.header.playbackTime;
+    return 1.0 / this.tickInterval;
   }
 
   /**
    * @returns Number of seconds elapsed
    */
   get currentTime() {
-    return (
-      this.currentTick * (this.header.playbackTime / this.header.playbackTicks)
-    );
+    return this.currentTick * this.tickInterval;
   }
 
   /**
@@ -412,6 +421,11 @@ export class DemoFile extends EventEmitter {
    */
   public currentTick: number = 0;
 
+  /**
+   * Number of seconds per tick
+   */
+  public tickInterval: number = NaN;
+
   public header!: IDemoHeader;
 
   /**
@@ -427,7 +441,7 @@ export class DemoFile extends EventEmitter {
 
   private _bytebuf!: ByteBuffer;
   private _lastThreadYieldTime = 0;
-  private _immediateTimerToken: NodeJS.Timer | null = null;
+  private _immediateTimerToken: NodeJS.Immediate | null = null;
   private _timeoutTimerToken: NodeJS.Timer | null = null;
 
   /**
@@ -457,10 +471,22 @@ export class DemoFile extends EventEmitter {
     this.stringTables.listen(this);
     this.userMessages.listen(this);
     this.conVars.listen(this);
+
+    // #65: Some demos are missing playbackTicks from the header
+    // Pull the tick interval from ServerInfo
+    this.on("svc_ServerInfo", msg => {
+      this.tickInterval = msg.tickInterval;
+    });
   }
 
   public parse(buffer: Buffer) {
     this.header = parseHeader(buffer);
+
+    // #65: Some demos are missing playbackTicks from the header
+    if (this.header.playbackTicks > 0) {
+      this.tickInterval = this.header.playbackTime / this.header.playbackTicks;
+    }
+
     this._bytebuf = ByteBuffer.wrap(buffer.slice(1072), true);
 
     this.emit("start");
@@ -596,7 +622,7 @@ export class DemoFile extends EventEmitter {
         case DemoCommands.Stop:
           this.cancel();
           this.emit("tickend", this.currentTick);
-          this.emit("end", {});
+          this.emit("end", { incomplete: false });
           return;
         case DemoCommands.CustomData:
           throw new Error("Custom data not supported");
@@ -609,8 +635,19 @@ export class DemoFile extends EventEmitter {
       // Always cancel if we have an error - we've already scheduled the next tick
       this.cancel();
 
-      this.emit("tickend", this.currentTick);
-      this.emit("end", { error: e });
+      // #11, #172: Some demos have been written incompletely.
+      // Don't throw an error when we run out of bytes to read.
+      if (
+        e instanceof RangeError &&
+        this.header.playbackTicks === 0 &&
+        this.header.playbackTime === 0 &&
+        this.header.playbackFrames === 0
+      ) {
+        this.emit("end", { incomplete: true });
+      } else {
+        this.emit("error", e);
+        this.emit("end", { error: e, incomplete: false });
+      }
     }
   }
 }
